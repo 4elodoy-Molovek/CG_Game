@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -16,13 +16,7 @@ namespace Lab2
         private Camera camera;
 
         private float rotation;
-        private Matrix4 view;
         private Matrix4 projection;
-
-        private Vector3 cameraPosition = new Vector3(0, 0, 3);
-        private Vector3 cameraFront = -Vector3.UnitZ;
-        private Vector3 cameraUp = Vector3.UnitY;
-        private float cameraSpeed = 1.5f;
 
         public Game(int width, int height)
             : base(GameWindowSettings.Default, NativeWindowSettings.Default)
@@ -35,64 +29,9 @@ namespace Lab2
             base.OnLoad();
 
             camera = new Camera(new Vector3(0, 0, 3), Vector3.UnitY, -90.0f, 0.0f);
-            CursorState = CursorState.Grabbed;
 
-            float[] vertices =
-            {
-                // Грань задняя
-                -0.5f, -0.5f, -0.5f,  0f, 0f,
-                 0.5f, -0.5f, -0.5f,  1f, 0f,
-                 0.5f,  0.5f, -0.5f,  1f, 1f,
-                -0.5f,  0.5f, -0.5f,  0f, 1f,
-
-                // Грань передняя
-                -0.5f, -0.5f,  0.5f,  0f, 0f,
-                 0.5f, -0.5f,  0.5f,  1f, 0f,
-                 0.5f,  0.5f,  0.5f,  1f, 1f,
-                -0.5f,  0.5f,  0.5f,  0f, 1f,
-
-                // Левая
-                -0.5f, -0.5f, -0.5f,  0f, 0f,
-                -0.5f, -0.5f,  0.5f,  1f, 0f,
-                -0.5f,  0.5f,  0.5f,  1f, 1f,
-                -0.5f,  0.5f, -0.5f,  0f, 1f,
-
-                // Правая
-                 0.5f, -0.5f, -0.5f,  0f, 0f,
-                 0.5f, -0.5f,  0.5f,  1f, 0f,
-                 0.5f,  0.5f,  0.5f,  1f, 1f,
-                 0.5f,  0.5f, -0.5f,  0f, 1f,
-
-                // Нижняя
-                -0.5f, -0.5f, -0.5f,  0f, 0f,
-                 0.5f, -0.5f, -0.5f,  1f, 0f,
-                 0.5f, -0.5f,  0.5f,  1f, 1f,
-                -0.5f, -0.5f,  0.5f,  0f, 1f,
-
-                // Верхняя
-                -0.5f,  0.5f, -0.5f,  0f, 0f,
-                 0.5f,  0.5f, -0.5f,  1f, 0f,
-                 0.5f,  0.5f,  0.5f,  1f, 1f,
-                -0.5f,  0.5f,  0.5f,  0f, 1f
-            };
-
-
-            uint[] indices =
-            {
-                // Задняя
-                0, 1, 2, 2, 3, 0,
-                // Передняя
-                4, 5, 6, 6, 7, 4,
-                // Левая
-                8, 9, 10, 10, 11, 8,
-                // Правая
-                12, 13, 14, 14, 15, 12,
-                // Нижняя
-                16, 17, 18, 18, 19, 16,
-                // Верхняя
-                20, 21, 22, 22, 23, 20
-            };
-
+            float[] vertices = { /* ... (твой массив вершин) ... */ };
+            uint[] indices = { /* ... (твой массив индексов) ... */ };
 
             VAO = GL.GenVertexArray();
             VBO = GL.GenBuffer();
@@ -141,15 +80,8 @@ namespace Lab2
 
             float deltaTime = (float)args.Time;
 
-            if (KeyboardState.IsKeyDown(Keys.Escape))
-                Close();
-
-            if (KeyboardState.IsKeyDown(Keys.Backspace))
-                CursorState = CursorState.Normal;
-            
+            // Обработка клавиш для перемещения камеры
             camera.ProcessKeyboardInput(KeyboardState, deltaTime);
-
-            Console.WriteLine("Camera Position: " + camera.Position);
         }
 
         protected override void OnMouseMove(MouseMoveEventArgs e)
@@ -164,13 +96,13 @@ namespace Lab2
         {
             base.OnRenderFrame(args);
 
-            rotation += 0.5f * (float)args.Time;
+            rotation += (float)args.Time;
 
             GL.ClearColor(0.2f, 0.3f, 0.3f, 1f);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             Matrix4 model = Matrix4.CreateRotationY(rotation) * Matrix4.CreateRotationX(rotation / 2);
-            view = camera.GetViewMatrix();
+            Matrix4 view = camera.GetViewMatrix();
 
             shader.Use();
             shader.SetMatrix4("model", model);
