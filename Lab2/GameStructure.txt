@@ -1,0 +1,22 @@
+/BilliardsGame
+│
+├── Game.cs               // Основной игровой цикл (OpenTK GameWindow)
+├── Camera.cs             // Управление камерой (как ты уже делал)
+│
+├── Objects/
+│   ├── BilliardBall.cs   // Один шар (позиция, скорость, столкновения)
+│   ├── BilliardTable.cs  // Модель стола, загрузка из .obj
+│   └── Cue.cs            // Кий (можно просто направление удара)
+│
+├── Physics/
+│   └── PhysicsEngine.cs  // Столкновения, отражения, замедление
+│
+├── Shaders/
+│   ├── shader.vert
+│   └── shader.frag
+│
+├── Textures/
+│   └── ball_texture.png  // Если будешь использовать текстуры
+│
+└── Models/
+    └── table.obj         // 3D модель стола

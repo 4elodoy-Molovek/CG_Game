@@ -14,6 +14,8 @@ namespace Lab2
         private int VAO, VBO, EBO, textureID;
         private Shader shader;
         private Camera camera;
+        private Model table;
+
 
         private float rotation;
         private Matrix4 view;
@@ -36,6 +38,8 @@ namespace Lab2
 
             camera = new Camera(new Vector3(0, 0, 3), Vector3.UnitY, -90.0f, 0.0f);
             CursorState = CursorState.Grabbed;
+
+            table = ModelLoader.Load("../../../../Models/Billiard Table.obj", "../../../../Models/Billiard Table.mtl", "../../../../Textures/Biliard_Table");
 
             float[] vertices =
             {
