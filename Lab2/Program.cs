@@ -1,12 +1,24 @@
-﻿using Lab2;
+﻿using System;
+using Lab2;
+using OpenTK.Windowing.Desktop;
 
-class Program
+namespace Lab2
 {
-    static void Main(string[] args)
+    internal static class Program
     {
-        using (Game game = new Game(800, 800))
+        public static void Main()
         {
-            game.Run();
+            var gameWindowSettings = GameWindowSettings.Default;
+            var nativeWindowSettings = new NativeWindowSettings()
+            {
+                Size = new OpenTK.Mathematics.Vector2i(1280, 720),
+                Title = "Billiards Game",
+            };
+
+            using (var game = new Game(gameWindowSettings, nativeWindowSettings))
+            {
+                game.Run();
+            }
         }
     }
 }

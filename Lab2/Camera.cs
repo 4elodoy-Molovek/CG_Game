@@ -15,12 +15,13 @@ namespace Lab2
         private float pitch;
         private float movementSpeed;
         private float mouseSensitivity;
+        private float aspectRatio;
 
         private float lastX;
         private float lastY;
         private bool firstMouse;
 
-        public Camera(Vector3 position, Vector3 up, float yaw, float pitch, float movementSpeed = 2.0f, float mouseSensitivity = 0.05f)
+        public Camera(Vector3 position, Vector3 up, float yaw, float pitch, float movementSpeed = 2.0f, float mouseSensitivity = 0.05f, float aspectRatio = 0)
         {
             Position = position;
             WorldUp = up;
@@ -28,8 +29,9 @@ namespace Lab2
             this.pitch = pitch;
             this.movementSpeed = movementSpeed;
             this.mouseSensitivity = mouseSensitivity;
+            this.aspectRatio = aspectRatio;
 
-            Front = Vector3.UnitZ;
+            Front = Vector3.Normalize(new Vector3(0, -0.5f, -1));
             Right = Vector3.Cross(Front, WorldUp);
             Up = Vector3.Cross(Right, Front);
 
@@ -95,6 +97,10 @@ namespace Lab2
         public Matrix4 GetViewMatrix()
         {
             return Matrix4.LookAt(Position, Position + Front, Up);
+        }
+        public Matrix4 GetProjectionMatrix()
+        {
+            return Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45f), aspectRatio, 0.1f, 100f);
         }
     }
 }

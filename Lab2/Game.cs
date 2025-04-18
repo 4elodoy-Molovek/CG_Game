@@ -1,210 +1,115 @@
-﻿using System;
-using System.IO;
-using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
+﻿using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using StbImageSharp;
+using OpenTK.Graphics.OpenGL4;
+using System.Collections.Generic;
+using Lab2;
 
-namespace Lab2
+public class Game : GameWindow
 {
-    class Game : GameWindow
+    private Shader shader;
+    private Camera camera;
+    private Table table;
+    private List<(Vector3 position, Vector3 color)> ballData;
+    private Sphere ballMesh;
+    private Sphere cueMesh;
+    private Vector2 lastMousePos;
+    private bool firstMove = true;
+    private float cameraSpeed = 3.0f;
+    private float mouseSensitivity = 0.2f;
+
+    public Game(GameWindowSettings gws, NativeWindowSettings nws)
+        : base(gws, nws)
     {
-        private int VAO, VBO, EBO, textureID;
-        private Shader shader;
-        private Camera camera;
-        private Model table;
+        CursorState CursorGrabbed = CursorState.Grabbed;
+        CursorState CursorVisible = CursorState.Hidden;
+    }
 
+    protected override void OnLoad()
+    {
+        base.OnLoad();
+        GL.ClearColor(Color4.White);
+        GL.Enable(EnableCap.DepthTest);
 
-        private float rotation;
-        private Matrix4 view;
-        private Matrix4 projection;
+        shader = new Shader("C:/Users/4elodoy Molovek/source/repos/Lab2/Shaders/shader.vert", "C:/Users/4elodoy Molovek/source/repos/Lab2/Shaders/shader.frag");
+        camera = new Camera(new Vector3(0.6f, 49.0f, -44.0f), Vector3.UnitY, -135.0f, -30.0f, 2f, 0.05f, Size.X / (float)Size.Y);
+        CursorState = CursorState.Grabbed;
 
-        private Vector3 cameraPosition = new Vector3(0, 0, 3);
-        private Vector3 cameraFront = -Vector3.UnitZ;
-        private Vector3 cameraUp = Vector3.UnitY;
-        private float cameraSpeed = 1.5f;
+        table = new Table("C:/Users/4elodoy Molovek/source/repos/Lab2/Models/untitled.fbx");
+        ballMesh = new Sphere(0.2f);
+        cueMesh = new Sphere(0.05f, 12, 6);
 
-        public Game(int width, int height)
-            : base(GameWindowSettings.Default, NativeWindowSettings.Default)
+        ballData = new List<(Vector3, Vector3)>
         {
-            CenterWindow(new Vector2i(width, height));
-        }
+            (new Vector3(0, 0.2f, 0), new Vector3(1, 1, 1)), // Белый
+            (new Vector3(1.5f, 0.2f, 0), new Vector3(1, 1, 0)), // Жёлтый
+            (new Vector3(1.7f, 0.2f, 0.2f), new Vector3(0, 0, 1)), // Синий
+            (new Vector3(1.9f, 0.2f, -0.2f), new Vector3(1, 0, 0)), // Красный
+            (new Vector3(2.1f, 0.2f, 0.4f), new Vector3(0.5f, 0, 0.5f)), // Фиолетовый
+            (new Vector3(2.3f, 0.2f, -0.4f), new Vector3(1, 0.5f, 0)), // Оранжевый
+            (new Vector3(2.5f, 0.2f, 0.6f), new Vector3(0, 0.5f, 0)), // Зелёный
+            (new Vector3(2.7f, 0.2f, -0.6f), new Vector3(0.6f, 0.3f, 0.2f)), // Коричневый
+        };
+    }
 
-        protected override void OnLoad()
+    protected override void OnRenderFrame(FrameEventArgs args)
+    {
+        base.OnRenderFrame(args);
+        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+        shader.Use();
+        shader.SetMatrix4("view", camera.GetViewMatrix());
+        shader.SetMatrix4("projection", camera.GetProjectionMatrix());
+        shader.SetVector3("lightPos", new Vector3(5, 5, 5));
+        shader.SetVector3("viewPos", camera.Position);
+
+        shader.SetVector3("color", new Vector3(0.2f, 0.6f, 0.2f));
+        shader.SetMatrix4("model", Matrix4.Identity);
+        table.Render();
+
+        foreach (var (position, color) in ballData)
         {
-            base.OnLoad();
-
-            camera = new Camera(new Vector3(0, 0, 3), Vector3.UnitY, -90.0f, 0.0f);
-            CursorState = CursorState.Grabbed;
-
-            table = ModelLoader.Load("../../../../Models/Billiard Table.obj", "../../../../Models/Billiard Table.mtl", "../../../../Textures/Biliard_Table");
-
-            float[] vertices =
-            {
-                // Грань задняя
-                -0.5f, -0.5f, -0.5f,  0f, 0f,
-                 0.5f, -0.5f, -0.5f,  1f, 0f,
-                 0.5f,  0.5f, -0.5f,  1f, 1f,
-                -0.5f,  0.5f, -0.5f,  0f, 1f,
-
-                // Грань передняя
-                -0.5f, -0.5f,  0.5f,  0f, 0f,
-                 0.5f, -0.5f,  0.5f,  1f, 0f,
-                 0.5f,  0.5f,  0.5f,  1f, 1f,
-                -0.5f,  0.5f,  0.5f,  0f, 1f,
-
-                // Левая
-                -0.5f, -0.5f, -0.5f,  0f, 0f,
-                -0.5f, -0.5f,  0.5f,  1f, 0f,
-                -0.5f,  0.5f,  0.5f,  1f, 1f,
-                -0.5f,  0.5f, -0.5f,  0f, 1f,
-
-                // Правая
-                 0.5f, -0.5f, -0.5f,  0f, 0f,
-                 0.5f, -0.5f,  0.5f,  1f, 0f,
-                 0.5f,  0.5f,  0.5f,  1f, 1f,
-                 0.5f,  0.5f, -0.5f,  0f, 1f,
-
-                // Нижняя
-                -0.5f, -0.5f, -0.5f,  0f, 0f,
-                 0.5f, -0.5f, -0.5f,  1f, 0f,
-                 0.5f, -0.5f,  0.5f,  1f, 1f,
-                -0.5f, -0.5f,  0.5f,  0f, 1f,
-
-                // Верхняя
-                -0.5f,  0.5f, -0.5f,  0f, 0f,
-                 0.5f,  0.5f, -0.5f,  1f, 0f,
-                 0.5f,  0.5f,  0.5f,  1f, 1f,
-                -0.5f,  0.5f,  0.5f,  0f, 1f
-            };
-
-
-            uint[] indices =
-            {
-                // Задняя
-                0, 1, 2, 2, 3, 0,
-                // Передняя
-                4, 5, 6, 6, 7, 4,
-                // Левая
-                8, 9, 10, 10, 11, 8,
-                // Правая
-                12, 13, 14, 14, 15, 12,
-                // Нижняя
-                16, 17, 18, 18, 19, 16,
-                // Верхняя
-                20, 21, 22, 22, 23, 20
-            };
-
-
-            VAO = GL.GenVertexArray();
-            VBO = GL.GenBuffer();
-            EBO = GL.GenBuffer();
-
-            GL.BindVertexArray(VAO);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, VBO);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
-
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
-            GL.EnableVertexAttribArray(0);
-            GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
-            GL.EnableVertexAttribArray(1);
-
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
-
-            GL.BindVertexArray(0);
-
-            shader = new Shader("../../../../Shaders/shader.vert", "../../../../Shaders/shader.frag");
-            shader.Use();
-            shader.SetInt("texture0", 0);
-
-            textureID = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, textureID);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-
-            StbImage.stbi_set_flip_vertically_on_load(1);
-            using (var stream = File.OpenRead("../../../../Textures/goyda.jpg"))
-            {
-                var img = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, img.Width, img.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, img.Data);
-                GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
-            }
-
-            projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45f), Size.X / (float)Size.Y, 0.1f, 100f);
-        }
-
-        protected override void OnUpdateFrame(FrameEventArgs args)
-        {
-            base.OnUpdateFrame(args);
-
-            float deltaTime = (float)args.Time;
-
-            if (KeyboardState.IsKeyDown(Keys.Escape))
-                Close();
-
-            if (KeyboardState.IsKeyDown(Keys.Backspace))
-                CursorState = CursorState.Normal;
-            
-            camera.ProcessKeyboardInput(KeyboardState, deltaTime);
-
-            Console.WriteLine("Camera Position: " + camera.Position);
-        }
-
-        protected override void OnMouseMove(MouseMoveEventArgs e)
-        {
-            base.OnMouseMove(e);
-
-            // Обработка мыши для вращения камеры
-            camera.UpdateMouseMovement(e.X, e.Y);
-        }
-
-        protected override void OnRenderFrame(FrameEventArgs args)
-        {
-            base.OnRenderFrame(args);
-
-            rotation += 0.5f * (float)args.Time;
-
-            GL.ClearColor(0.2f, 0.3f, 0.3f, 1f);
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
-            Matrix4 model = Matrix4.CreateRotationY(rotation) * Matrix4.CreateRotationX(rotation / 2);
-            view = camera.GetViewMatrix();
-
-            shader.Use();
+            shader.SetVector3("color", color);
+            var model = Matrix4.CreateTranslation(position);
             shader.SetMatrix4("model", model);
-            shader.SetMatrix4("view", view);
-            shader.SetMatrix4("projection", projection);
-
-            GL.ActiveTexture(TextureUnit.Texture0);
-            GL.BindTexture(TextureTarget.Texture2D, textureID);
-
-            GL.BindVertexArray(VAO);
-            GL.Enable(EnableCap.DepthTest);
-            GL.DrawElements(PrimitiveType.Triangles, 36, DrawElementsType.UnsignedInt, 0);
-
-            SwapBuffers();
+            ballMesh.Draw();
         }
 
-        protected override void OnResize(ResizeEventArgs e)
-        {
-            base.OnResize(e);
-            GL.Viewport(0, 0, e.Width, e.Height);
-            projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45f), e.Width / (float)e.Height, 0.1f, 100f);
-        }
+        shader.SetVector3("color", new Vector3(0.6f, 0.3f, 0.1f));
+        var cueModel = Matrix4.CreateScale(0.05f, 0.05f, 1.2f) * Matrix4.CreateTranslation(0, 0.2f, -1);
+        shader.SetMatrix4("model", cueModel);
+        cueMesh.Draw();
 
-        protected override void OnUnload()
-        {
-            base.OnUnload();
-            GL.DeleteVertexArray(VAO);
-            GL.DeleteBuffer(VBO);
-            GL.DeleteBuffer(EBO);
-            GL.DeleteTexture(textureID);
-        }
+        SwapBuffers();
+    }
+
+    protected override void OnUnload()
+    {
+        base.OnUnload();
+        shader.Dispose();
+    }
+
+    protected override void OnUpdateFrame(FrameEventArgs args)
+    {
+        base.OnUpdateFrame(args);
+
+        float deltaTime = (float)args.Time;
+
+        if (KeyboardState.IsKeyDown(Keys.Escape))
+            Close();
+
+        if (KeyboardState.IsKeyDown(Keys.Backspace))
+            CursorState = CursorState.Normal;
+
+        camera.ProcessKeyboardInput(KeyboardState, deltaTime);
+
+        Console.WriteLine("Camera Position: " + camera.Position);
+    }
+
+    protected override void OnMouseMove(MouseMoveEventArgs e)
+    {
+        base.OnMouseMove(e);
+        camera.UpdateMouseMovement(e.X, e.Y);
     }
 }
