@@ -15,8 +15,8 @@ void main()
 {
     vec3 baseColor = texture(texture_diffuse, TexCoord).rgb;
 
-    // If the texture is missing, use the color
-    if (baseColor == vec3(0.0, 0.0, 0.0)) {
+    // Если текстура отсутствует — используем переданный цвет
+    if (baseColor == vec3(0.0)) {
         baseColor = color;
     }
 
@@ -25,4 +25,4 @@ void main()
     vec3 diffuse = diff * baseColor;
 
     FragColor = vec4(diffuse, 1.0);
-};
+}

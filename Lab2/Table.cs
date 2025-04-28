@@ -1,137 +1,135 @@
-﻿using Assimp;
-using OpenTK.Graphics.OpenGL4;
+﻿using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using System.Drawing;
-using System.Drawing.Imaging;
+using StbImageSharp;
+using Assimp;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
-public class Table
+namespace Lab2
 {
-    private int vao;
-    private int vbo;
-    private int nbo;
-    private int tbo;
-    private int vertexCount;
-    private int textureID;
-
-    public Table(string fbxPath)
+    public class Table
     {
-        AssimpContext importer = new();
-        var scene = importer.ImportFile(fbxPath,
-            PostProcessSteps.Triangulate |
-            PostProcessSteps.GenerateNormals |
-            PostProcessSteps.FlipUVs |
-            PostProcessSteps.JoinIdenticalVertices
-        );
-
-        List<float> vertices = new();
-        List<float> normals = new();
-        List<float> texCoords = new();
-
-        foreach (var mesh in scene.Meshes)
+        private struct Mesh
         {
-            for (int i = 0; i < mesh.Vertices.Count; i++)
-            {
-                var v = mesh.Vertices[i];
-                vertices.AddRange(new float[] { v.X, v.Y, v.Z });
-
-                var n = mesh.Normals[i];
-                normals.AddRange(new float[] { n.X, n.Y, n.Z });
-
-                if (mesh.HasTextureCoords(0))
-                {
-                    var uv = mesh.TextureCoordinateChannels[0][i];
-                    texCoords.AddRange(new float[] { uv.X, uv.Y });
-                }
-                else
-                {
-                    texCoords.AddRange(new float[] { 0f, 0f });
-                }
-            }
-
-            vertexCount += mesh.Vertices.Count;
+            public int vao;
+            public int vbo;
+            public int ebo;
+            public int texture;
+            public int indexCount;
         }
 
-        // Загружаем текстуру (берём первую из материалов)
-        var material = scene.Materials[scene.Meshes[0].MaterialIndex];
-        if (material.HasTextureDiffuse)
+        private List<Mesh> meshes = new();
+
+        public Table(string path)
         {
-            string texturePath = material.TextureDiffuse.FilePath;
-            if (File.Exists(texturePath))
+            var context = new AssimpContext();
+            var scene = context.ImportFile(path, PostProcessSteps.Triangulate | PostProcessSteps.FlipUVs);
+
+            string directory = Path.GetDirectoryName(path);
+
+            foreach (var mesh in scene.Meshes)
             {
-                textureID = LoadTexture(texturePath);
-            }
-            else
-            {
-                Console.WriteLine($"[Table] Текстура не найдена: {texturePath}");
+                var vertices = new List<float>();
+                var indices = mesh.GetIndices();
+
+                for (int i = 0; i < mesh.VertexCount; i++)
+                {
+                    var pos = mesh.Vertices[i];
+                    var normal = mesh.Normals[i];
+                    var tex = mesh.HasTextureCoords(0) ? mesh.TextureCoordinateChannels[0][i] : new Vector3D(0, 0, 0);
+
+                    // vertex format: position (3), normal (3), texcoords (2)
+                    vertices.AddRange(new float[] { pos.X, pos.Y, pos.Z, normal.X, normal.Y, normal.Z, tex.X, tex.Y });
+                }
+
+                int vao = GL.GenVertexArray();
+                int vbo = GL.GenBuffer();
+                int ebo = GL.GenBuffer();
+
+                GL.BindVertexArray(vao);
+
+                GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+                GL.BufferData(BufferTarget.ArrayBuffer, vertices.Count * sizeof(float), vertices.ToArray(), BufferUsageHint.StaticDraw);
+
+                GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
+                GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
+
+                int stride = 8 * sizeof(float);
+
+                GL.EnableVertexAttribArray(0); // position
+                GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, 0);
+
+                GL.EnableVertexAttribArray(1); // normal
+                GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, stride, 3 * sizeof(float));
+
+                GL.EnableVertexAttribArray(2); // texcoord
+                GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, stride, 6 * sizeof(float));
+
+                GL.BindVertexArray(0);
+
+                int texture = 0;
+                if (scene.Materials[mesh.MaterialIndex].HasTextureDiffuse)
+                {
+                    string texPath = Path.Combine(directory, scene.Materials[mesh.MaterialIndex].TextureDiffuse.FilePath);
+                    texture = LoadTexture(texPath);
+                }
+
+                meshes.Add(new Mesh
+                {
+                    vao = vao,
+                    vbo = vbo,
+                    ebo = ebo,
+                    texture = texture,
+                    indexCount = indices.Length
+                });
             }
         }
 
-        // OpenGL
-        vao = GL.GenVertexArray();
-        vbo = GL.GenBuffer();
-        nbo = GL.GenBuffer();
-        tbo = GL.GenBuffer();
+        public void Render(Shader shader)
+        {
+            foreach (var mesh in meshes)
+            {
+                if (mesh.texture != 0)
+                {
+                    GL.ActiveTexture(TextureUnit.Texture0);
+                    GL.BindTexture(TextureTarget.Texture2D, mesh.texture);
+                    shader.SetInt("texture_diffuse", 0);
+                }
 
-        GL.BindVertexArray(vao);
+                GL.BindVertexArray(mesh.vao);
+                GL.DrawElements(OpenTK.Graphics.OpenGL4.PrimitiveType.Triangles, mesh.indexCount, DrawElementsType.UnsignedInt, 0);
+            }
 
-        // Позиции
-        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Count * sizeof(float), vertices.ToArray(), BufferUsageHint.StaticDraw);
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 0, 0);
-        GL.EnableVertexAttribArray(0);
+            GL.BindVertexArray(0);
+        }
 
-        // Нормали
-        GL.BindBuffer(BufferTarget.ArrayBuffer, nbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, normals.Count * sizeof(float), normals.ToArray(), BufferUsageHint.StaticDraw);
-        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 0, 0);
-        GL.EnableVertexAttribArray(1);
+        private int LoadTexture(string path)
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine($"Texture file not found: {path}");
+                return 0;
+            }
 
-        // UV
-        GL.BindBuffer(BufferTarget.ArrayBuffer, tbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, texCoords.Count * sizeof(float), texCoords.ToArray(), BufferUsageHint.StaticDraw);
-        GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, 0, 0);
-        GL.EnableVertexAttribArray(2);
-    }
+            int texture = GL.GenTexture();
+            GL.BindTexture(TextureTarget.Texture2D, texture);
 
-    public void Render()
-    {
-        GL.ActiveTexture(TextureUnit.Texture0);
-        GL.BindTexture(TextureTarget.Texture2D, textureID);
-        GL.BindVertexArray(vao);
-        GL.DrawArrays(PrimitiveType.Triangles, 0, vertexCount);
-    }
+            using var stream = File.OpenRead(path);
+            var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
 
-    private int LoadTexture(string path)
-    {
-        int id = GL.GenTexture();
-        GL.BindTexture(TextureTarget.Texture2D, id);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                          image.Width, image.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, image.Data);
 
-        using var image = new Bitmap(path);
-        var data = image.LockBits(
-            new Rectangle(0, 0, image.Width, image.Height),
-            ImageLockMode.ReadOnly,
-            System.Drawing.Imaging.PixelFormat.Format32bppArgb
-        );
+            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
-        GL.TexImage2D(TextureTarget.Texture2D,
-            0,
-            PixelInternalFormat.Rgba,
-            data.Width,
-            data.Height,
-            0,
-            OpenTK.Graphics.OpenGL4.PixelFormat.Bgra,
-            PixelType.UnsignedByte,
-            data.Scan0
-        );
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)OpenTK.Graphics.OpenGL4.TextureWrapMode.Repeat);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)OpenTK.Graphics.OpenGL4.TextureWrapMode.Repeat);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
 
-        image.UnlockBits(data);
-
-        GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-
-        return id;
+            return texture;
+        }
     }
 }
