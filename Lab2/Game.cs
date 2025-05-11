@@ -12,7 +12,9 @@ public class Game : GameWindow
     private Shader ballShader;
     private Camera camera;
     private Table table;
+    private Physics physics;
     private List<(Vector3 position, Vector3 color)> ballData;
+    private List<(Vector3 position, Vector3 color)> ballDataB;
     private Sphere ballMesh;
     private Sphere cueMesh;
     private Vector2 lastMousePos;
@@ -24,7 +26,6 @@ public class Game : GameWindow
         : base(gws, nws)
     {
         CursorState CursorGrabbed = CursorState.Grabbed;
-        CursorState CursorVisible = CursorState.Hidden;
     }
 
     protected override void OnLoad()
@@ -35,7 +36,7 @@ public class Game : GameWindow
 
         tableShader = new Shader("C:/Users/4elodoy Molovek/source/repos/Lab2/Shaders/shader.vert", "C:/Users/4elodoy Molovek/source/repos/Lab2/Shaders/shader.frag");
         ballShader = new Shader("C:/Users/4elodoy Molovek/source/repos/Lab2/Shaders/ball.vert", "C:/Users/4elodoy Molovek/source/repos/Lab2/Shaders/ball.frag");
-        camera = new Camera(new Vector3(0, 6, 6), Vector3.UnitY, -135.0f, -30.0f, 2f, 0.05f, Size.X / (float)Size.Y);
+        camera = new Camera(new Vector3(0, 1.45f, -2.68f), Vector3.UnitY, -135.0f, -30.0f, 2f, 0.05f, Size.X / (float)Size.Y);
         CursorState = CursorState.Grabbed;
 
         table = new Table("C:/Users/4elodoy Molovek/source/repos/Lab2/Models/fck/untitled.obj");
@@ -47,19 +48,20 @@ public class Game : GameWindow
         float y = 0.9f;
 
         ballData = new List<(Vector3, Vector3)>();
+        ballDataB = new List<(Vector3, Vector3)>();
 
         // Define ball colors
         Vector3[] colors =
         {
-        new Vector3(1f, 1f, 0f), new Vector3(0f, 0f, 1f), new Vector3(1f, 0f, 0f),
-        new Vector3(0.5f, 0f, 0.5f), new Vector3(0f, 0f, 0f), new Vector3(0f, 1f, 0f),
-        new Vector3(1f, 0.5f, 0f), new Vector3(0.5f, 0.3f, 0f), new Vector3(0.5f, 0f, 0.3f),
-        new Vector3(0f, 1f, 1f), new Vector3(1f, 0.2f, 0.8f), new Vector3(0.7f, 0.7f, 0.2f),
-        new Vector3(0.9f, 0.4f, 0.1f), new Vector3(0.1f, 0.4f, 0.9f), new Vector3(0.6f, 0.2f, 0.6f)
-    };
+            new Vector3(1f, 1f, 0f), new Vector3(0f, 0f, 1f), new Vector3(1f, 0f, 0f),
+            new Vector3(0.5f, 0f, 0.5f), new Vector3(0f, 0f, 0f), new Vector3(0f, 1f, 0f),
+            new Vector3(1f, 0.5f, 0f), new Vector3(0.5f, 0.3f, 0f), new Vector3(0.5f, 0f, 0.3f),
+            new Vector3(0f, 1f, 1f), new Vector3(1f, 0.2f, 0.8f), new Vector3(0.7f, 0.7f, 0.2f),
+            new Vector3(0.9f, 0.4f, 0.1f), new Vector3(0.1f, 0.4f, 0.9f), new Vector3(0.6f, 0.2f, 0.6f)
+        };
 
         // Add cue ball (white), positioned lower on table
-        ballData.Add((new Vector3(0.0f, y, -0.8f), new Vector3(1f, 1f, 1f)));
+        ballDataB.Add((new Vector3(0.0f, y, -0.8f), new Vector3(1f, 1f, 1f)));
 
         // Start of the rack (yellow ball tip towards cue ball)
         Vector3 rackStart = new Vector3(0.0f, y, 0.8f);
@@ -80,10 +82,12 @@ public class Game : GameWindow
                 x = rackStart.X - (x - rackStart.X);
                 z = rackStart.Z - (z - rackStart.Z);
 
-                ballData.Add((new Vector3(x, y, z), colors[colorIndex]));
+                ballDataB.Add((new Vector3(x, y, z), colors[colorIndex]));
                 colorIndex++;
             }
         }
+        ballData = ballDataB;
+        physics = new Physics(ballData);
     }
 
 
@@ -113,15 +117,21 @@ public class Game : GameWindow
         ballShader.SetVector3("viewPos", camera.Position);
 
 
-        foreach (var (position, color) in ballData)
+        var balls = physics.GetBalls();
+
+        for (int i = 0; i < balls.Count; i++)
         {
+            var ball = balls[i];
+            if (!ball.IsActive) continue; // Не рисуем выбитые шары
+
+            var position = ball.Position;
+            var color = ballData[i].color; // Цвета остались в ballData
+
             var model = Matrix4.CreateTranslation(position);
             ballShader.SetMatrix4("model", model);
             ballShader.SetVector3("objectColor", color);
             ballMesh.Draw();
         }
-
-
 
         tableShader.Use();
         tableShader.SetVector3("color", new Vector3(0.6f, 0.3f, 0.1f));
@@ -151,7 +161,20 @@ public class Game : GameWindow
         if (KeyboardState.IsKeyDown(Keys.Backspace))
             CursorState = CursorState.Normal;
 
+        if (KeyboardState.IsKeyDown(Keys.Backslash))
+            CursorState = CursorState.Grabbed;
+
+        if (KeyboardState.IsKeyPressed(Keys.Space))
+        {
+            var direction = new Vector3(camera.Front.X, 0, camera.Front.Z).Normalized();
+            physics.StrikeBall(direction);
+        }
+
+        if (KeyboardState.IsKeyDown(Keys.R))
+            physics.ResetBalls(ballDataB);
+
         camera.ProcessKeyboardInput(KeyboardState, deltaTime);
+        physics.Update(deltaTime);
 
         Console.WriteLine("Camera Position: " + camera.Position);
     }

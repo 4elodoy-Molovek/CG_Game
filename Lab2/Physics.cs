@@ -64,16 +64,37 @@ public class Physics
     {
         if (!ball.IsActive) return;
 
-        if (ball.Position.X < -tableWidth + ball.Radius || ball.Position.X > tableWidth - ball.Radius)
+        bool collision = false;
+
+        if (ball.Position.X < -tableWidth + ball.Radius)
         {
+            ball.Position.X = -tableWidth + ball.Radius;
             ball.Velocity.X = -ball.Velocity.X;
-            ball.Position.X = MathHelper.Clamp(ball.Position.X, -tableWidth + ball.Radius, tableWidth - ball.Radius);
+            collision = true;
+        }
+        else if (ball.Position.X > tableWidth - ball.Radius)
+        {
+            ball.Position.X = tableWidth - ball.Radius;
+            ball.Velocity.X = -ball.Velocity.X;
+            collision = true;
         }
 
-        if (ball.Position.Z < -tableHeight + ball.Radius || ball.Position.Z > tableHeight - ball.Radius)
+        if (ball.Position.Z < -tableHeight + ball.Radius)
         {
+            ball.Position.Z = -tableHeight + ball.Radius;
             ball.Velocity.Z = -ball.Velocity.Z;
-            ball.Position.Z = MathHelper.Clamp(ball.Position.Z, -tableHeight + ball.Radius, tableHeight - ball.Radius);
+            collision = true;
+        }
+        else if (ball.Position.Z > tableHeight - ball.Radius)
+        {
+            ball.Position.Z = tableHeight - ball.Radius;
+            ball.Velocity.Z = -ball.Velocity.Z;
+            collision = true;
+        }
+
+        if (collision)
+        {
+            ball.Velocity *= 0.9f; // потери энергии при ударе об борт
         }
     }
 
@@ -123,18 +144,19 @@ public class Physics
                     Vector3 relativeVelocity = a.Velocity - b.Velocity;
                     float velocityAlongNormal = Vector3.Dot(relativeVelocity, normal);
 
-                    if (velocityAlongNormal > 0)
-                        continue;
+                    // Убираем проверку velocityAlongNormal > 0
+                    // потому что если шары пересекаются, надо их обязательно раздвинуть
 
-                    float restitution = 1.0f;
-                    float impulseScalar = -(1 + restitution) * velocityAlongNormal / 2;
+                    float restitution = 0.9f; // немного меньше 1.0 для реалистичности
+                    float impulseScalar = -(1 + restitution) * velocityAlongNormal / 2.0f;
                     Vector3 impulse = impulseScalar * normal;
 
                     a.Velocity += impulse;
                     b.Velocity -= impulse;
 
+                    // Раздвигаем шары так, чтобы убрать пересечение
                     float penetration = minDistance - distance;
-                    Vector3 correction = normal * penetration / 2;
+                    Vector3 correction = normal * (penetration / 2.0f);
                     a.Position -= correction;
                     b.Position += correction;
                 }
@@ -149,7 +171,7 @@ public class Physics
         Ball cueBall = balls[0];
         if (!cueBall.IsActive) return;
 
-        cueBall.Velocity += direction.Normalized() * 5.0f;
+        cueBall.Velocity += direction.Normalized() * 20.0f;
     }
 
     public void ResetBalls(List<(Vector3 position, Vector3 color)> ballData)
