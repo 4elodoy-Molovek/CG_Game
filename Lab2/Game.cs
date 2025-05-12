@@ -39,7 +39,7 @@ public class Game : GameWindow
         camera = new Camera(new Vector3(0, 1.45f, -2.68f), Vector3.UnitY, -135.0f, -30.0f, 2f, 0.05f, Size.X / (float)Size.Y);
         CursorState = CursorState.Grabbed;
 
-        table = new Table("C:/Users/4elodoy Molovek/source/repos/Lab2/Models/fck/untitled.obj");
+        table = new Table("C:/Users/4elodoy Molovek/source/repos/Lab2/Models/new/untitled.obj");
         ballMesh = new Sphere(0.05f);
         cueMesh = new Sphere(0.05f, 12, 6);
 
