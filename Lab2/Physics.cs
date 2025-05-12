@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Lab2;
 using OpenTK.Mathematics;
 
 public class Physics
@@ -33,6 +34,7 @@ public class Physics
     private float tableWidth = 1.5f;
     private float tableHeight = 3.0f;
     private float pocketRadius = 0.1f;
+    private List<Vector3> pockets = new();
 
     public Physics(List<(Vector3 position, Vector3 color)> ballData)
     {
@@ -41,6 +43,27 @@ public class Physics
         {
             balls.Add(new Ball(position));
         }
+    }
+
+    public Physics(List<(Vector3 position, Vector3 color)> ballData, Table table)
+    {
+        balls = new List<Ball>();
+        foreach (var (position, _) in ballData)
+        {
+            balls.Add(new Ball(position));
+        }
+
+        var (width, height) = table.GetTableSize();
+        tableWidth = width;
+        tableHeight = height;
+
+        // Берём карманы из модели
+        pockets = table.GetPocketPositions();
+
+        // Радиус тоже из модели
+        pocketRadius = table.GetPocketRadiusEstimate();
+
+        Console.WriteLine($"Table size: width={tableWidth}, height={tableHeight}, pocket radius={pocketRadius}");
     }
 
     public List<Ball> GetBalls()
@@ -66,51 +89,52 @@ public class Physics
 
         bool collision = false;
 
-        if (ball.Position.X < -tableWidth + ball.Radius)
+        // Смещение для бортиков — примерно двойной радиус шара (чтобы шары не врезались в борта визуально)
+        float borderOffset = ball.Radius * 2.0f;
+
+        // Левая и правая стены
+        float minX = -tableWidth + borderOffset + ball.Radius;
+        float maxX = tableWidth - borderOffset - ball.Radius;
+
+        if (ball.Position.X < minX)
         {
-            ball.Position.X = -tableWidth + ball.Radius;
+            ball.Position.X = minX;
             ball.Velocity.X = -ball.Velocity.X;
             collision = true;
         }
-        else if (ball.Position.X > tableWidth - ball.Radius)
+        else if (ball.Position.X > maxX)
         {
-            ball.Position.X = tableWidth - ball.Radius;
+            ball.Position.X = maxX;
             ball.Velocity.X = -ball.Velocity.X;
             collision = true;
         }
 
-        if (ball.Position.Z < -tableHeight + ball.Radius)
+        // Верхняя и нижняя стены (по Z)
+        float minZ = -tableHeight + borderOffset + ball.Radius;
+        float maxZ = tableHeight - borderOffset - ball.Radius;
+
+        if (ball.Position.Z < minZ)
         {
-            ball.Position.Z = -tableHeight + ball.Radius;
+            ball.Position.Z = minZ;
             ball.Velocity.Z = -ball.Velocity.Z;
             collision = true;
         }
-        else if (ball.Position.Z > tableHeight - ball.Radius)
+        else if (ball.Position.Z > maxZ)
         {
-            ball.Position.Z = tableHeight - ball.Radius;
+            ball.Position.Z = maxZ;
             ball.Velocity.Z = -ball.Velocity.Z;
             collision = true;
         }
 
         if (collision)
         {
-            ball.Velocity *= 0.9f; // потери энергии при ударе об борт
+            ball.Velocity *= 0.9f;
         }
     }
 
     private void HandlePocket(Ball ball)
     {
         if (!ball.IsActive) return;
-
-        var pockets = new List<Vector3>
-        {
-            new Vector3(-tableWidth, 0, -tableHeight),
-            new Vector3(0, 0, -tableHeight),
-            new Vector3(tableWidth, 0, -tableHeight),
-            new Vector3(-tableWidth, 0, tableHeight),
-            new Vector3(0, 0, tableHeight),
-            new Vector3(tableWidth, 0, tableHeight),
-        };
 
         foreach (var pocket in pockets)
         {
@@ -144,17 +168,13 @@ public class Physics
                     Vector3 relativeVelocity = a.Velocity - b.Velocity;
                     float velocityAlongNormal = Vector3.Dot(relativeVelocity, normal);
 
-                    // Убираем проверку velocityAlongNormal > 0
-                    // потому что если шары пересекаются, надо их обязательно раздвинуть
-
-                    float restitution = 0.9f; // немного меньше 1.0 для реалистичности
+                    float restitution = 1.5f;
                     float impulseScalar = -(1 + restitution) * velocityAlongNormal / 2.0f;
                     Vector3 impulse = impulseScalar * normal;
 
                     a.Velocity += impulse;
                     b.Velocity -= impulse;
 
-                    // Раздвигаем шары так, чтобы убрать пересечение
                     float penetration = minDistance - distance;
                     Vector3 correction = normal * (penetration / 2.0f);
                     a.Position -= correction;
@@ -171,7 +191,7 @@ public class Physics
         Ball cueBall = balls[0];
         if (!cueBall.IsActive) return;
 
-        cueBall.Velocity += direction.Normalized() * 20.0f;
+        cueBall.Velocity += direction.Normalized() * 70.0f;
     }
 
     public void ResetBalls(List<(Vector3 position, Vector3 color)> ballData)
@@ -181,5 +201,40 @@ public class Physics
         {
             balls.Add(new Ball(position));
         }
+    }
+
+    public void SetTableSize(float width, float height)
+    {
+        tableWidth = width / 2.0f;
+        tableHeight = height / 2.0f;
+    }
+
+    public (float width, float height) GetTableSize()
+    {
+        return (tableWidth * 2.0f, tableHeight * 2.0f);
+    }
+
+    public static (float width, float height) GetTableSizeFromMesh(List<Vector3> meshVertices)
+    {
+        if (meshVertices == null || meshVertices.Count == 0)
+            return (0, 0);
+
+        float minX = meshVertices[0].X;
+        float maxX = meshVertices[0].X;
+        float minZ = meshVertices[0].Z;
+        float maxZ = meshVertices[0].Z;
+
+        foreach (var v in meshVertices)
+        {
+            if (v.X < minX) minX = v.X;
+            if (v.X > maxX) maxX = v.X;
+            if (v.Z < minZ) minZ = v.Z;
+            if (v.Z > maxZ) maxZ = v.Z;
+        }
+
+        float width = maxX - minX;
+        float height = maxZ - minZ;
+
+        return (width, height);
     }
 }

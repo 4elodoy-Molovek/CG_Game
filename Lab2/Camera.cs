@@ -40,31 +40,25 @@ namespace Lab2
             firstMouse = true;
         }
 
-        public void UpdateMouseMovement(float xpos, float ypos)
+        public void SetAspectRatio(float ratio)
         {
-            if (firstMouse)
-            {
-                lastX = xpos;
-                lastY = ypos;
-                firstMouse = false;
-            }
+            aspectRatio = ratio;
+        }
 
-            float xoffset = xpos - lastX;
-            float yoffset = lastY - ypos;
-            lastX = xpos;
-            lastY = ypos;
-
+        public void UpdateMouseMovement(float xoffset, float yoffset)
+        {
             xoffset *= mouseSensitivity;
             yoffset *= mouseSensitivity;
 
             yaw += xoffset;
-            pitch += yoffset;
+            pitch -= yoffset;
 
             if (pitch > 89.0f) pitch = 89.0f;
             if (pitch < -89.0f) pitch = -89.0f;
 
             UpdateCameraVectors();
         }
+
 
         public void ProcessKeyboardInput(KeyboardState keyboardState, float deltaTime)
         {

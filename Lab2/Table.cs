@@ -22,6 +22,8 @@ namespace Lab2
 
         private List<Mesh> meshes = new();
 
+        private List<Vector3> modelVertices = new();
+
         public Table(string path)
         {
             var context = new AssimpContext();
@@ -31,6 +33,11 @@ namespace Lab2
 
             foreach (var mesh in scene.Meshes)
             {
+                foreach (var vertex in mesh.Vertices)
+                {
+                    modelVertices.Add(new Vector3(vertex.X, vertex.Y, vertex.Z));
+                }
+
                 var vertices = new List<float>();
                 var indices = mesh.GetIndices();
 
@@ -131,5 +138,67 @@ namespace Lab2
 
             return texture;
         }
+
+        public List<Vector3> GetMeshVertices() => new(modelVertices);
+
+        public (float width, float height) GetTableSize()
+        {
+            float minX = float.MaxValue;
+            float maxX = float.MinValue;
+            float minZ = float.MaxValue;
+            float maxZ = float.MinValue;
+
+            foreach (var vertex in modelVertices)
+            {
+                if (vertex.X < minX) minX = vertex.X;
+                if (vertex.X > maxX) maxX = vertex.X;
+
+                if (vertex.Z < minZ) minZ = vertex.Z;
+                if (vertex.Z > maxZ) maxZ = vertex.Z;
+            }
+
+            float width = (maxX - minX) / 2.0f;
+            float height = (maxZ - minZ) / 2.0f;
+
+            return (width, height);
+        }
+
+        public List<Vector3> GetPocketPositions()
+        {
+            var (width, height) = GetTableSize();
+
+            return new List<Vector3>
+            {
+                new Vector3(-width, 0, -height),
+                new Vector3(0, 0, -height),
+                new Vector3(width, 0, -height),
+                new Vector3(-width, 0, height),
+                new Vector3(0, 0, height),
+                new Vector3(width, 0, height)
+            };
+        }
+
+        public float GetPocketRadiusEstimate()
+        {
+            var pockets = GetPocketPositions();
+
+            // Берём первый карман
+            var firstPocket = pockets[0];
+
+            // Найдём минимальное расстояние до ближайшей вершины модели
+            float minDistance = float.MaxValue;
+
+            foreach (var v in modelVertices)
+            {
+                float distance = (v - firstPocket).Length;
+                if (distance < minDistance)
+                    minDistance = distance;
+            }
+
+            return minDistance * 0.7f; // множитель 0.7f чтобы мяч проваливался чуть-чуть увереннее
+        }
+
     }
+
 }
+

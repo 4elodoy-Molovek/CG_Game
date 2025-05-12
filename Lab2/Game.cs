@@ -87,7 +87,7 @@ public class Game : GameWindow
             }
         }
         ballData = ballDataB;
-        physics = new Physics(ballData);
+        physics = new Physics(ballData, table);
     }
 
 
@@ -182,6 +182,14 @@ public class Game : GameWindow
     protected override void OnMouseMove(MouseMoveEventArgs e)
     {
         base.OnMouseMove(e);
-        camera.UpdateMouseMovement(e.X, e.Y);
+        camera.UpdateMouseMovement(e.DeltaX, e.DeltaY);
     }
+
+    protected override void OnResize(ResizeEventArgs e)
+    {
+        base.OnResize(e);
+        GL.Viewport(0, 0, Size.X, Size.Y);
+        camera.SetAspectRatio(Size.X / (float)Size.Y);
+    }
+
 }
