@@ -64,7 +64,7 @@ public class Game : GameWindow
         ballDataB.Add((new Vector3(0.0f, y, -0.8f), new Vector3(1f, 1f, 1f)));
 
         // Start of the rack (yellow ball tip towards cue ball)
-        Vector3 rackStart = new Vector3(0.0f, y, 0.8f);
+        Vector3 rackStart = new Vector3(0.0f, y, 0.5f);
 
         int colorIndex = 0;
 
